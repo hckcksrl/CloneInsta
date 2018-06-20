@@ -18,9 +18,12 @@ class User(AbstractUser):
 
     name = models.CharField(_("Name of User"), blank=True, max_length=255)
     website = models.URLField(null=True)
-    bio = models.CharField(max_length=100,null=True)
+    bio = models.TextField(max_length=100,null=True)
     phone = models.CharField(max_length=140,null=True)
     gender = models.CharField(max_length=80,choices = GENDER_CHOICE,null=True)
+    followers = models.ManyToManyField("self")
+    following = models.ManyToManyField("self")
+
 
     def __str__(self):
         return self.username
