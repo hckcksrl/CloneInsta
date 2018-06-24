@@ -19,6 +19,10 @@ urlpatterns = [
         "users/",
         include("hckgram.users.urls", namespace="users"),
     ),
+    path(
+        "images/",
+        include("hckgram.images.urls", namespace="images"),
+    ),
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
 ] + static(
