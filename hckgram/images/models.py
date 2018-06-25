@@ -16,11 +16,18 @@ class Image(TimeStampModel):
     file = models.ImageField()
     location = models.CharField(max_length=140)
     caption = models.TextField()
-    creator = models.ForeignKey(user_models.User,on_delete = models.CASCADE, null=True)
+    creator = models.ForeignKey(user_models.User,
+        on_delete = models.CASCADE, null=True, related_name ='images')
 
+    @property   # 데이터로 가지는 않지만 모델안에 존재 , function 이다
+    def count_likes(self):
+        return self.likes.all().count() #count()는 숫자를 세는 python함수
 
     def __str__(self):
         return '{} - {}'.format(self.location,self.caption)
+
+    class Meta:
+        ordering = ['-creat_at'] # 가장 최근순으로 
 
 class Comment(TimeStampModel):
 
