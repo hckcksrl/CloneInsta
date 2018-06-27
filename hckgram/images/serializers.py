@@ -2,6 +2,28 @@ from rest_framework import serializers
 from . import models
 from hckgram.users import models as user_models
 
+class SmallImageSerializer(serializers.ModelSerializer):
+
+    """"used for thr notifications"""
+    
+    class Meta : 
+        model = models.Image
+        fields = (
+            'file',
+        )
+
+
+class CountImageSerializer(serializers.ModelSerializer):
+
+    class Meta : 
+        model = models.Image
+        fields = (
+            'id',
+            'file',
+            'count_comments',
+            'count_likes'
+        )
+
 
 class FeedUserSerializer(serializers.ModelSerializer):
 
@@ -14,7 +36,7 @@ class FeedUserSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     
-    creator = FeedUserSerializer()
+    creator = FeedUserSerializer(read_only = True)
 
     class Meta :
         model = models.Comment
