@@ -2,42 +2,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from . import models , serializers
 from rest_framework import status
+from hckgram.notifications import views as notifications_views
+from hckgram.users import models as user_models
+from hckgram.users import serializers as user_serializers
 
 
-# class ListAllImages(APIView):
-
-#     def get(self, request , format=None):
-        
-#         all_images = models.Image.objects.all()
-
-#         serializer = serializers.ImageSerializer(all_images, many=True)
-
-#         return Response(data=serializer.data)
-
-
-# class ListAllComments(APIView):
-
-#     def get(self, request , format=None):
-
-#         all_comments = models.Comment.objects.all()
-
-#         serializer = serializers.CommentSerializer(all_comments, many=True)
-
-#         return Response(data=serializer.data)
-
-
-# class ListAllLikes(APIView):
-
-#     def get(self, request , format=True):
-        
-#         all_likes = models.Like.objects.all()
-
-#         serializer = serializers.LikeSerializer(all_likes , many = True)
-
-#         return Response(data = serializer.data)
-
-
-class Feed(APIView):
+class Images(APIView):
     def get(self, request , format=None):
 
         user = request.user
@@ -53,6 +23,12 @@ class Feed(APIView):
             for image in user_images:
 
                 image_list.append(image)    # image 를 image_list에 저장
+        
+        my_image = user.images.all()[:2]
+
+        for image in my_image :
+
+            image_list.append(image)
 
         sorted_image = sorted(image_list , 
         key = lambda image: image.creat_at , reverse=True)  # image_list를 creat_at(생성순)으로 정렬 reverse를해줘서 최신생성순으로 정렬
@@ -61,7 +37,36 @@ class Feed(APIView):
 
         return Response(serializer.data)
 
+
+    def post(self , request , format=None):
+
+        user = request.user
+
+        serializer = serializers.InputImageSerializer(data = request.data)
+
+        if serializer.is_valid():
+
+            serializer.save(creator = user)
+
+            return Response(data = serializer.data , status=status.HTTP_201_CREATED)
+
+        else :
+
+            return Response(data = serializer.errors , status=status.HTTP_400_BAD_REQUEST)
+
 class LikeImage(APIView):
+
+    def get(self , request , image_id , format=None):
+
+        likes = models.Like.objects.filter(image__id = image_id)
+
+        like_creator_ids = likes.values('creator_id')        
+        
+        users = user_models.User.objects.filter(id__in = like_creator_ids)
+
+        serializer = user_serializers.ListUserSerializer(users, many=True)
+
+        return Response(data = serializer.data ,status = status.HTTP_200_OK)
 
     def post(self , request ,image_id ,format=None):
 
@@ -83,6 +88,7 @@ class LikeImage(APIView):
                 image = found_image
             )
             new_like.save()
+            notifications_views.create_notification(user , found_image.creator , 'like',found_image)
             return Response(status=status.HTTP_200_OK)
 
 
@@ -116,16 +122,25 @@ class CommentOnImage(APIView):
         user = request.user
 
         try:
+       
             found_image = models.Image.objects.get(id = image_id)   # comment 달려고하는 image가 있는지 확인
+        
         except models.Image.DoesNotExist :
+         
             return Response(status =status.HTTP_404_NOT_FOUND)
 
         serializer = serializers.CommentSerializer(data = request.data) #  data를 serializer한다.(CommentSerializer)형태
 
         if serializer.is_valid() :  #   serializer 가 있으면
+            
             serializer.save(creator=user, image = found_image)  #   serializer save를한다. creator 는 user , image 는 found_image
+            
+            notifications_views.create_notification(user , found_image.creator , 'comment',found_image,serializer.data['message'])
+            
             return Response(data = serializer.data , status=status.HTTP_201_CREATED)
+        
         else : 
+         
             return Response(data = serializer.errors,status = status.HTTP_400_BAD_REQUEST)
 
 class DeleteComment(APIView):
@@ -163,3 +178,83 @@ class Search(APIView):
 
         else :
             return Response(status = status.HTTP_400_BAD_REQUEST)
+
+class ImageComment(APIView):
+
+    def delete(self, request , image_id , comment_id , format=None):
+
+        user = request.user
+
+        try:
+            comment_to_delete = models.Comment.objects.get(
+                id = comment_id , image__id = image_id , image__creator = user)
+            comment_to_delete.delete()
+        except models.Comment.DoesNotExist:
+            return  Response(status= status.HTTP_404_NOT_FOUND)
+
+        return Response(status = status.HTTP_204_NO_CONTENT)
+
+
+class ImageDetail(APIView):
+
+    def find_own_image(self , image_id , user):
+
+        try:
+            image = models.Image.objects.get(id = image_id,creator = user)
+            return image
+        except models.Image.DoesNotExist:
+            return None
+
+    def get(self,request,image_id,format=None):
+
+        user = request.user
+
+        try : 
+            image = models.Image.objects.get(id = image_id)
+
+        except models.Image.DoesNotExist:
+            return Response(status = status.HTTP_404_NOT_FOUND)
+
+        serializer = serializers.ImageSerializer(image)
+
+        return Response(data = serializer.data, status=status.HTTP_200_OK)
+
+
+    def put(self , request , image_id , format=None):
+
+        user = request.user
+
+        image = self.find_own_image(image_id ,user)
+
+        if image is None :
+
+            return Response(status = status.HTTP_401_UNAUTHORIZED)
+
+        serializer = serializers.InputImageSerializer(
+            image , data = request.data , partial=True) #   partial 은 필수필드를 다 적용안해도됨
+
+        if serializer.is_valid():
+
+            serializer.save(creator = user)
+
+            return Response(data = serializer.data , status = status.HTTP_204_NO_CONTENT)
+
+        else : 
+            
+            return Response(data = serializer.errors , status = status.HTTP_400_BAD_REQUEST)
+
+
+    def delete(self , request , image_id , format=None):
+        
+        user = request.user
+
+        image = self.find_own_image(image_id , user)
+
+        if image is None : 
+
+            return Response(status = status.HTTP_401_UNAUTHORIZED)
+
+        image.delete()
+
+        return Response(status = statis.HTTP_204_NO_CONTENT)
+        
