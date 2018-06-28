@@ -38,5 +38,15 @@ urlpatterns = [
         "<str:username>",
         view = views.UserProfile.as_view(),
         name = 'user_profile'
+    ),
+    path(
+        "<str:username>/password",
+        view = views.ChangePassword.as_view(),
+        name = 'change_password'        
+    ),
+    path(
+        "login/facebook/",
+        view = views.FacebookLogin.as_view(),
+        name = 'facebook_login'
     )
 ]
