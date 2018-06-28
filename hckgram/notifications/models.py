@@ -21,3 +21,9 @@ class Notification(images_models.TimeStampModel):
     image = models.ForeignKey(images_models.Image,
     on_delete = models.CASCADE)
     comment = models.TextField(null = True , blank= True)
+
+    class Meta :
+        ordering = ['-creat_at']
+
+    def __str__(self):
+        return 'From : {} - {}'.format(self.creator,self.to)
