@@ -173,7 +173,7 @@ class ChangePassword(APIView):
 
                     new_password = request.data.get('new_password',None)
 
-                    if noew_password is not None:
+                    if new_password is not None:
 
                         user.set_password(new_password)
 
